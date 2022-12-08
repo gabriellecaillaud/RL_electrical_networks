@@ -64,7 +64,7 @@ def save_results(folder, model, g):
     return folder
 
 
-def response(ReconfAction_fromRL, RepairAction_fromRL):
+def response(ReconfAction_fromRL, RepairAction_fromRL = None):
     # ***** small use case *****
     experiment = Path(__file__).stem
     folder = 'runs/'
@@ -176,8 +176,13 @@ def response(ReconfAction_fromRL, RepairAction_fromRL):
     # v = list(model.L)
     # model.IdxL = pyo.Set(intialize={v.index(edge):edge for edge in v})
     # ----------------------------- Parameters ----------------------
+    if RepairAction_fromRL != None:
+        (rp1,rp2) = RepairAction_fromRL
+        graph[rp1][rp2]['failed']='0'
+        graph[rp2][rp1]['failed']='0'
+
     model.s = pyo.Param(model.N, within=pyo.Binary, initialize={node:1 if graph.nodes[node]['HV_SS']=='1' else 0 for node in model.N}) # 1 if a node is a HV/MV substation, 0 otherwise
-    model.f_l = pyo.Param(model.NxN, within=pyo.Binary, initialize = {edge:1 if graph[edge[0]][edge[1]]['failed']=='1' else 0 for edge in model.NxN}) # 1 if failure in line l, 0 otherwise
+    model.f_l = pyo.Param(model.NxN, within=pyo.Binary, initialize = {edge:1 if graph[edge[0]][edge[1]]['failed']=='1' else 0 for edge in model.NxN},mutable = True) # 1 if failure in line l, 0 otherwise
     model.p_d = pyo.Param(model.N, within=pyo.NonNegativeReals, initialize={node:float(graph.nodes[node]['P_d']) for node in model.N}) # Active power demand at each node
     model.q_d = pyo.Param(model.N, within=pyo.NonNegativeReals, initialize={node:float(graph.nodes[node]['Q_d']) for node in model.N}) # Reactive power demand at each node
     model.p_s = pyo.Param(model.N, within=pyo.NonNegativeReals, initialize={node:float(graph.nodes[node]['P_s']) for node in model.N}) # Active power supplied at each node
@@ -202,7 +207,7 @@ def response(ReconfAction_fromRL, RepairAction_fromRL):
     # example: sw_fromRL = {edge:0 if graph[edge[0]][edge[1]]['normal_open']=='1' else 1 for edge in model.NxN} 
     # rp_fromRL <- based on the information on this vector, the parameter model.f_l above can be modified by
     #              setting f_l[(i,j)] = 0 for the line (i,j) that was chosed to be repaired
-
+    
     # ----------------------------- Variables ---------------------------------------------------
     model.p = pyo.Var(model.NxN,model.T0, within=pyo.NonNegativeReals) # The flow of active power over each line
     model.q = pyo.Var(model.NxN, model.T0, within=pyo.NonNegativeReals) # The flow of reactive power over each line
@@ -261,9 +266,10 @@ def response(ReconfAction_fromRL, RepairAction_fromRL):
                         
 
     # If suitable values of sw_fromRL are set above, activate this constraint by uncommenting
-    #model.c0_0 = pyo.Constraint(model.LxL, rule=lambda model, i, j:
-    #                            model.sw[i,j,3] == sw_fromRL[(i,j)]
-    #                            )
+    model.c0_0 = pyo.Constraint(model.L_r_rc, rule=lambda model, i, j:
+                                model.sw[i,j,3] == sw_fromRL[(i,j)]
+                                )
+
 
     #ICI#
 
@@ -520,9 +526,9 @@ def response(ReconfAction_fromRL, RepairAction_fromRL):
             plt.savefig(folder+'plot_T_'+str(step)+'.pdf')
             plt.savefig(folder+'plot_T_'+str(step)+'.svg')
             plt.show()
-    
     except:
-        return model, g, None, -len(g.nodes)*10
+        return model, g, None, -len(graph.nodes)
+
 
     for node,(x,y) in pos.items(): # save node positions as labels (x,y)
         g.nodes[node]['pos_x'] = float(x)
@@ -557,7 +563,7 @@ def response(ReconfAction_fromRL, RepairAction_fromRL):
     # reward <- if the problem gives a solution, assign the difference between resulted p_ns and previous p_ns
     #           if the problem is infeasible, assign a negative reward
     ind = list(model.f_l)
-    val = list(model.f_l[:,:])
+    val = list(model.f_l[:,:].value)
     result_fl = [ i + tuple([j]) for i,j in zip(ind, val)]
     result_fl = np.asarray(result_fl)
 
@@ -584,29 +590,18 @@ def response(ReconfAction_fromRL, RepairAction_fromRL):
 
     reward = p_ns[2] - p_ns[1]
     next_state = [result_fl,result_p,result_q,result_v,result_p_ns]
+
     return model, g, next_state, reward
 
 if __name__ == "__main__":
     # ReconfigAction and RepairAction are to be taken from an RL agent
     #model, graph, next_state, reward = response(ReconfigAction, RepairAction)
-    reconf = {(18, 17): 1, (16, 29): 0, (28, 3): 0, (8, 9): 0, (9, 8): 0, (22, 35): 0, (20, 22): 0, (19, 2): 1, (34, 30): 0, (9, 10): 1, (14, 33): 0, (1, 8): 0, (24, 10): 0, (15, 16): 1, (16, 15): 1, (33, 31): 0, (14, 8): 1, (31, 33): 0, (3, 26): 1, (11, 9): 1, (13, 12): 1, (25, 11): 1, (18, 5): 0, (30, 34): 1, (12, 13): 1, (3, 28): 1, (15, 2): 1, (10, 24): 0, (24, 23): 1, (30, 36): 1, (17, 2): 1, (20, 19): 1, (23, 24): 1, (5, 18): 0, (21, 36): 0, (3, 30): 1, (6, 1): 1, (19, 20): 1, (11, 25): 0, (12, 8): 1, (20, 21): 1, (21, 20): 1, (31, 30): 1, (32, 13): 0, (27, 26): 1, (2, 15): 1, (30, 31): 1, (26, 27): 1, (5, 4): 1, (22, 20): 1, (23, 19): 1, (31, 32): 1, (17, 18): 1, (33, 14): 0, (2, 17): 1, (25, 19): 1, (13, 32): 0, (29, 28): 1, (28, 29): 1, (2, 19): 1, (4, 1): 1, (35, 34): 1, (7, 27): 0, (8, 1): 1, (1, 4): 1, (32, 31): 1, (27, 7): 0, (30, 3): 1, (8, 12): 1, (10, 9): 1, (1, 6): 1, (9, 11): 1, (29, 16): 0, (4, 5): 1, (36, 21): 0, (8, 14): 1, (36, 30): 1, (19, 23): 1, (6, 7): 1, (7, 6): 1, (35, 22): 0, (34, 35): 1, (19, 25): 1, (26, 3): 1}
-    repair = {(18, 17): 0, (16, 29): 0, (28, 3): 0, (8, 9): 0, (9, 8): 0, (22, 35): 0, (20, 22): 0, (19, 2): 0, (34, 30): 0, (9, 10): 0, (14, 33): 0, (1, 8): 0, (24, 10): 0, (15, 16): 0, (16, 15): 0, (33, 31): 0, (14, 8): 0, (31, 33): 0, (3, 26): 0, (11, 9): 0, (13, 12): 1, (25, 11): 0, (18, 5): 0, (30, 34): 0, (12, 13): 1, (3, 28): 0, (15, 2): 0, (10, 24): 0, (24, 23): 1, (30, 36): 0, (17, 2): 1, (20, 19): 0, (23, 24): 1, (5, 18): 0, (21, 36): 0, (3, 30): 0, (6, 1): 0, (19, 20): 0, (11, 25): 0, (12, 8): 0, (20, 21): 1, (21, 20): 1, (31, 30): 1, (32, 13): 0, (27, 26): 0, (2, 15): 0, (30, 31): 1, (26, 27): 0, (5, 4): 0, (22, 20): 0, (23, 19): 0, (31, 32): 0, (17, 18): 0, (33, 14): 0, (2, 17): 1, (25, 19): 0, (13, 32): 0, (29, 28): 1, (28, 29): 1, (2, 19): 0, (4, 1): 0, (35, 34): 0, (7, 27): 0, (8, 1): 0, (1, 4): 0, (32, 31): 0, (27, 7): 0, (30, 3): 0, (8, 12): 0, (10, 9): 0, (1, 6): 0, (9, 11): 0, (29, 16): 0, (4, 5): 0, (36, 21): 0, (8, 14): 0, (36, 30): 0, (19, 23): 0, (6, 7): 0, (7, 6): 0, (35, 22): 0, (34, 35): 0, (19, 25): 0, (26, 3): 0}
-    ans = response(reconf ,repair)
+    reconf = {(16, 29): False, (29, 16): False, (8, 9): False, (9, 8): False, (22, 35): False, (35, 22): False, (20, 22): False, (22, 20): False, (14, 33): False, (33, 14): False, (24, 10): False, (10, 24): False, (33, 31): False, (31, 33): False, (11, 9): True, (9, 11): True, (13, 12): True, (12, 13): True, (25, 11): True, (11, 25): True, (18, 5): False, (5, 18): False, (24, 23): True, (23, 24): True, (20, 19): False, (19, 20): False, (21, 36): False, (36, 21): False, (20, 21): True, (21, 20): True, (31, 30): True, (30, 31): True, (32, 13): False, (13, 32): False, (27, 26): True, (26, 27): True, (5, 4): True, (4, 5): True, (23, 19): False, (19, 23): False, (7, 27): False, (27, 7): False}
+    repair = (12,13)
+    ans = response(reconf)
     reward = ans[3]
     print(ans)
     
     if ans[2] == None:
         print("reset")
         reset()
-    
-
-
-"""As ReconfigAction and RepairAction are not defined initially, you can launch an independent run by commenting
-lines 40, 520-524 and adjust the indent of all other parts"""
-
-
-
-
-
-
-
