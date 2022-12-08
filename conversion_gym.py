@@ -15,6 +15,7 @@ import tensorflow as tf
 import gym
 import tensorflow_probability as tfp
 import tensorflow.keras.losses as kls
+import random
 
 # création de l'environnement d'apprentissage avec standards gym à travers l'héritage et implémentation des
 # fonctions de BaseAlpyneEnv
@@ -57,6 +58,8 @@ class EolienParc(BaseAlpyneEnv):
     # transformer l'action prise par l'actor sous forme d'un vecteur à une action de type Action de Alpyne pour
     # la communiquer avec le serveur alpyne
     def _convert_to_action(self, action: np.ndarray) -> Action:
+    
+        print("L'ACTION EST", action)
         if(action[0] == action[1]):
             action[1] = 50
         if(action[0] == action[2]):
@@ -78,7 +81,7 @@ class EolienParc(BaseAlpyneEnv):
 
     
     # creation de client Alpyne avec le modele exporté à partir de l'expérience RLExperiment
-client = AlpyneClient(r"C:\Users\gabri\Documents\CS\2A\Pole_projet\RL et Anylogic\Export-Test\model.jar", verbose = True, port = 51150)
+client = AlpyneClient(r"C:\Users\gabri\Documents\CS\2A\Pole_projet\RL_et_Anylogic\Export-Test\model.jar", verbose = True, port = 51150)
     # Creation d'un ModelRun avec le template de configuration
 cfg = client.configuration_template
     
@@ -109,10 +112,13 @@ class critic(tf.keras.Model):
 class actor(tf.keras.Model):
   def __init__(self):
     super().__init__()
-    self.d1 = tf.keras.layers.Dense(128,activation='relu')
+    self.d1 = tf.keras.layers.Dense(128,input_shape = (56,1),activation='relu')
     self.a = tf.keras.layers.Dense(2,activation='softmax')
 
   def call(self, input_data):
+    print ("Le TYPE", type(input_data))
+    #print("SHAPE", input_data.shape)
+
     x = self.d1(input_data)
     a = self.a(x)
     return a
@@ -130,11 +136,19 @@ class agent():
 
           
     def act(self,state):
-        prob = self.actor(np.array([state]))
-        prob = prob.numpy()
-        dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)
-        action = dist.sample()
-        return int(action.numpy()[0])
+        print("le np array", np.array(state))
+        #prob = self.actor(np.array(state,ndmin=2))
+        print('ligne 139')
+        a = random.randint(0,50)
+        b = random.randint(0,50)
+        c = random.randint(0,50)
+        return(np.array([a,b,c]))
+        #prob = prob.numpy()
+        #print("PROB", prob)
+        #dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)
+        #action = dist.sample()
+        #print('Ligne 238 dans act', action)
+        #return int(action.numpy()[0])
   
 
 
@@ -146,12 +160,13 @@ class agent():
         #print(entropy)
         sur1 = []
         sur2 = []
-        
+        i = 0
         for pb, t, op,a  in zip(probability, adv, old_probs, actions):
                         t =  tf.constant(t)
                         #op =  tf.constant(op)
                         #print(f"t{t}")
                         #ratio = tf.math.exp(tf.math.log(pb + 1e-10) - tf.math.log(op + 1e-10))
+                        a = i
                         ratio = tf.math.divide(pb[a],op[a])
                         #print(f"ratio{ratio}")
                         s1 = tf.math.multiply(ratio,t)
@@ -160,6 +175,7 @@ class agent():
                         #print(f"s2{s2}")
                         sur1.append(s1)
                         sur2.append(s2)
+                        i = i+1
 
         sr1 = tf.stack(sur1)
         sr2 = tf.stack(sur2)
@@ -182,6 +198,8 @@ class agent():
             v = tf.reshape(v, (len(v),))
             td = tf.math.subtract(discnt_rewards, v)
             c_loss = 0.5 * kls.mean_squared_error(discnt_rewards, v)
+            print("P",p)
+            print("Actions", actions)
             a_loss = self.actor_loss(p, actions, adv, old_probs, c_loss)
             
         grads1 = tape1.gradient(a_loss, self.actor.trainable_variables)
@@ -245,9 +263,11 @@ for s in range(steps):
     #env = EolienParc(sim)
     state = env.reset()
     print("on a reseté")
+    #state = env.get_observation_space()
     print("STATE", state)
     #On regarde l'état initial
-    state = env._get_observation_space
+    #print(env._get_observation_space())
+    #state = env._get_observation_space
     print("check: reset ok")
     all_aloss = []
     all_closs = []
@@ -263,6 +283,7 @@ for s in range(steps):
         print("check ligne 263")
         action = agentoo7.act(state)
         print("\n action \n",action)
+        print("check ligne 269")
         value = agentoo7.critic(np.array([state])).numpy()
         print("\n value \n",value )
         next_state, reward, done, _ = env.step(action)
@@ -277,7 +298,7 @@ for s in range(steps):
         values.append(value[0][0])
         state = next_state
         if done:
-            env.reset()
+            env = env.reset()
     
     value = agentoo7.critic(np.array([state])).numpy()
     values.append(value[0][0])
