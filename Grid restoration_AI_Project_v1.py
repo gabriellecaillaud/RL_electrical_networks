@@ -562,35 +562,39 @@ def response(ReconfAction_fromRL, RepairAction_fromRL = None):
     # next_state <- remaining damaged lines + active/reactive power, node voltage, non-supplied load
     # reward <- if the problem gives a solution, assign the difference between resulted p_ns and previous p_ns
     #           if the problem is infeasible, assign a negative reward
+
     ind = list(model.f_l)
     val = list(model.f_l[:,:].value)
-    result_fl = [ i + tuple([j]) for i,j in zip(ind, val)]
-    result_fl = np.asarray(result_fl)
+    result_fl = [ j for i,j in zip(ind, val)]
 
-    
+
     ind = list(model.p)
     val = list(model.p[:,:,:].value)
-    result_p = [ i[0:2] + tuple([j]) for i,j in zip(ind, val) if i[2] == 3]
-    result_p = np.asarray(result_p)
+    result_p = [ j for i,j in zip(ind, val) if i[2] == 3]
+
+    result = result_fl + result_p
 
     ind = list(model.q)
     val = list(model.q[:,:,:].value)
-    result_q = [ i[0:2] + tuple([j]) for i,j in zip(ind, val) if i[2] == 3]
-    result_q = np.asarray(result_q)
+    result_q = [ j for i,j in zip(ind, val) if i[2] == 3]
+
+
+    result += result_q
 
     ind = list(model.v)
     val = list(model.v[:,:].value)
-    result_v = [ i[0:1] + tuple([j]) for i,j in zip(ind, val) if i[1] == 3]
-    result_v = np.asarray(result_v)
+    result_v = [ j for i,j in zip(ind, val) if i[1] == 3]
+
+
+    result += result_v
 
     ind = list(model.p_ns)
     val = list(model.p_ns[:,:].value)
-    result_p_ns = [ i[0:1] + tuple([j]) for i,j in zip(ind, val) if i[1] == 3]
-    result_p_ns = np.asarray(result_p_ns)
+    result_p_ns = [ j for i,j in zip(ind, val) if i[1] == 3]
 
+
+    next_state = result + result_p_ns
     reward = p_ns[2] - p_ns[1]
-    next_state = [result_fl,result_p,result_q,result_v,result_p_ns]
-
     return model, g, next_state, reward
 
 if __name__ == "__main__":
