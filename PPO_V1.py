@@ -6,11 +6,14 @@ import tensorflow_probability as tfp
 import tensorflow.keras as keras
 import keras.losses as kls
 
+#from grid_environment import reset,
+
+
 env= gym.make("CartPole-v0")
 low = env.observation_space.low
 high = env.observation_space.high
 
-class critic(tf.keras.Model):
+class critic(tf.keras.Model):   #The Critic network outputs the value of a state.
     def __init__(self):
         super().__init__()
         self.d1 = tf.keras.layers.Dense(128,activation='relu')
@@ -22,34 +25,35 @@ class critic(tf.keras.Model):
         return v
     
 
-class actor(tf.keras.Model):
+class actor(tf.keras.Model):  #The Actor-network takes the current state as input and outputs probability for each action.
   def __init__(self):
     super().__init__()
     self.d1 = tf.keras.layers.Dense(128,activation='relu')
-    self.a = tf.keras.layers.Dense(2,activation='softmax')
+    self.a = tf.keras.layers.Dense(42,activation='softmax')    #42=number of switches on which we can take an action (open or close)
 
   def call(self, input_data):
     x = self.d1(input_data)
     a = self.a(x)
     return a
-class agent():
+
+class agent():                               #Action Selection
     def __init__(self, gamma = 0.99):
         self.gamma = gamma
         # self.a_opt = tf.keras.optimizers.Adam(learning_rate=1e-5)
         # self.c_opt = tf.keras.optimizers.Adam(learning_rate=1e-5)
-        self.a_opt = tf.keras.optimizers.Adam(learning_rate=7e-3)
+        self.a_opt = tf.keras.optimizers.Adam(learning_rate=7e-3)    #We define our agent class and initialize optimizer and learning rate.
         self.c_opt = tf.keras.optimizers.Adam(learning_rate=7e-3)
         self.actor = actor()
         self.critic = critic()
-        self.clip_pram = 0.2
+        self.clip_pram = 0.2         #We also define a clip_pram variable which will be used in the actor loss function.
 
           
     def act(self,state):
         print("le np array", np.array([state]))
         prob = self.actor(np.array([state]))
         prob = prob.numpy()
-        dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)
-        action = dist.sample()
+        dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)    #For action selection, we will be using the TensorFlow probabilities library, which takes probabilities as input and convert them into distribution.
+        action = dist.sample()                 #Then, we use the distribution for action selection.
         return int(action.numpy()[0])
   
 
@@ -106,13 +110,17 @@ class agent():
         self.c_opt.apply_gradients(zip(grads2, self.critic.trainable_variables))
         return a_loss, c_loss
 
-def test_reward(env):
+def test_reward(env):            #This function will be used to test our agent’s knowledge and returns the total reward for one episode.
     total_reward = 0
     state = env.reset()
     done = False
-    while not done:
+    while not done:                                                         #"DONE" A MODIFIER 
         action = np.argmax(agentoo7.actor(np.array([state])).numpy())
-        next_state, reward, done, _ = env.step(action)
+        next_state, reward, done, _ = env.step(action)                      #env.step() : This command will take an action at each step. The action is specified as its parameter. Env.step function returns four parameters, namely observation, reward, done and info. These four are explained below:
+                                                                            #observation : an environment-specific object representing your observation of the environment.
+                                                                            #reward : amount of reward achieved by the previous action. It is a floating data type value. The scale varies between environments.
+                                                                            #done : A boolean value stating whether it’s time to reset the environment again.
+                                                                            #info (dict): diagnostic information useful for debugging.
         state = next_state
         total_reward += reward
 
@@ -146,7 +154,7 @@ best_reward = 0
 avg_rewards_list = []
 
 
-for s in range(steps):
+for s in range(steps):           #We will loop for “steps” time i.e we will collect experience for “steps” time.
   if target == True:
           break
   
@@ -162,7 +170,7 @@ for s in range(steps):
   values = []
   print("new episod")
 
-  for e in range(128):
+  for e in range(128):         #The next loop is for the number of times agent interacts with environments and we store experiences in different lists.
    
     action = agentoo7.act(state)
     value = agentoo7.critic(np.array([state])).numpy()
@@ -179,22 +187,22 @@ for s in range(steps):
     if done:
       env.reset()
   
-  value = agentoo7.critic(np.array([state])).numpy()
-  values.append(value[0][0])
+  value = agentoo7.critic(np.array([state])).numpy()                  #After the above loop, we calculate and add the value of the state next 
+  values.append(value[0][0])                                          #to the last state for calculations in the Generalized Advantage Estimation method.
   np.reshape(probs, (len(probs),2))
   probs = np.stack(probs, axis=0)
 
-  states, actions,returns, adv  = preprocess1(states, actions, rewards, dones, values, 1)
+  states, actions,returns, adv  = preprocess1(states, actions, rewards, dones, values, 1)   #Then, we process all the lists in the Generalized Advantage Estimation method to get returns, advantage.
 
-  for epocs in range(10):
+  for epocs in range(10):                                    #We train our networks for 10 epochs.
       al,cl = agentoo7.learn(states, actions, adv, probs, returns)
       # print(f"al{al}") 
       # print(f"cl{cl}")   
 
-  avg_reward = np.mean([test_reward(env) for _ in range(5)])
+  avg_reward = np.mean([test_reward(env) for _ in range(5)])   #After training, we will test our agent on the test environment for five episodes.
   print(f"total test reward is {avg_reward}")
   avg_rewards_list.append(avg_reward)
-  if avg_reward > best_reward:
+  if avg_reward > best_reward:                               #If the average reward of test episodes is larger than the target reward set by you then stop otherwise repeat from step one.
         print('best reward=' + str(avg_reward))
         agentoo7.actor.save('model_actor_{}_{}'.format(s, avg_reward), save_format="tf")
         agentoo7.critic.save('model_critic_{}_{}'.format(s, avg_reward), save_format="tf")
