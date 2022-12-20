@@ -1,1 +1,0 @@
-{'Time steps': 4, 'Large Number M': 1000, 'Edges file': 'Data_nodes_2.txt', 'Nodes file': 'Data_edges_2.txt'}

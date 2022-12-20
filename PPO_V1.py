@@ -5,18 +5,18 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow import keras as keras
 import keras.losses as kls
-
+from Grid_restoration_AI_Project_v1 import environement
 #from grid_environment import reset,
 
 
-env= gym.make("CartPole-v0")
-low = env.observation_space.low
-high = env.observation_space.high
+env = environement()
+#low = env.observation_space.low
+#high = env.observation_space.high
 
 class critic(tf.keras.Model):   #The Critic network outputs the value of a state.
     def __init__(self):
         super().__init__()
-        self.d1 = tf.keras.layers.Dense(128,activation='relu')
+        self.d1 = tf.keras.layers.Dense(324,activation='relu')
         self.v = tf.keras.layers.Dense(1, activation = None)
 
     def call(self, input_data):
@@ -28,8 +28,8 @@ class critic(tf.keras.Model):   #The Critic network outputs the value of a state
 class actor(tf.keras.Model):  #The Actor-network takes the current state as input and outputs probability for each action.
   def __init__(self):
     super().__init__()
-    self.d1 = tf.keras.layers.Dense(128,activation='relu')
-    self.a = tf.keras.layers.Dense(42,activation='softmax')    #42=number of switches on which we can take an action (open or close)
+    self.d1 = tf.keras.layers.Dense(324,activation='relu')
+    self.a = tf.keras.layers.Dense(21,activation='softmax')    #21=number of distinct switches on which we can take an action (open or close)
 
   def call(self, input_data):
     x = self.d1(input_data)
@@ -49,12 +49,22 @@ class agent():                               #Action Selection
 
           
     def act(self,state):
-        print("le np array", np.array([state]))
-        prob = self.actor(np.array([state]))
+        #print("le np array", np.array([state]))
+        prob = self.actor(np.asarray([state]).astype('float32'))
         prob = prob.numpy()
-        dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)    #For action selection, we will be using the TensorFlow probabilities library, which takes probabilities as input and convert them into distribution.
-        action = dist.sample()                 #Then, we use the distribution for action selection.
-        return int(action.numpy()[0])
+        
+        reconf_list = [(16, 29), (29, 16), (8, 9), (9, 8), (22, 35), (35, 22), (20, 22), (22, 20), (14, 33), (33, 14), (24, 10), (10, 24), (33, 31), (31, 33), (11, 9), (9, 11), (13, 12), (12, 13), (25, 11), (11, 25), (18, 5), (5, 18), (24, 23), (23, 24), (20, 19), (19, 20), (21, 36), (36, 21), (20, 21), (21, 20), (31, 30), (30, 31), (32, 13), (13, 32), (27, 26), (26, 27), (5, 4), (4, 5), (23, 19), (19, 23), (7, 27), (27, 7)]
+        reconf = {}
+        treshold = 0.4
+
+        for i in range(len(prob[0])):
+            reconf[reconf_list[2*i]] = 1 if prob[0][i]>treshold else 0
+            reconf[reconf_list[2*i+1]] = 1 if prob[0][i]>treshold else 0
+        
+        return reconf
+        #dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)    #For action selection, we will be using the TensorFlow probabilities library, which takes probabilities as input and convert them into distribution.
+        #action = dist.sample()                 #Then, we use the distribution for action selection.
+        #return int(action.numpy()[0])
   
 
 
@@ -71,8 +81,8 @@ class agent():                               #Action Selection
                         t =  tf.constant(t)
                         #op =  tf.constant(op)
                         #print(f"t{t}")
-                        #ratio = tf.math.exp(tf.math.log(pb + 1e-10) - tf.math.log(op + 1e-10))
-                        ratio = tf.math.divide(pb[a],op[a])
+                        ratio = tf.math.exp(tf.math.log(pb + 1e-10) - tf.math.log(op + 1e-10))
+                        #ratio = tf.math.divide(pb[a],op[a])
                         #print(f"ratio{ratio}")
                         s1 = tf.math.multiply(ratio,t)
                         #print(f"s1{s1}")
@@ -95,7 +105,7 @@ class agent():                               #Action Selection
 
         old_p = old_probs
 
-        old_p = tf.reshape(old_p, (len(old_p),2))
+        old_p = tf.reshape(old_p, (len(old_p),21))
         with tf.GradientTape() as tape1, tf.GradientTape() as tape2:
             p = self.actor(states, training=True)
             v =  self.critic(states,training=True)
@@ -114,15 +124,19 @@ def test_reward(env):            #This function will be used to test our agent�
     total_reward = 0
     state = env.reset()
     done = False
-    while not done:                                                         #"DONE" A MODIFIER 
-        action = np.argmax(agentoo7.actor(np.array([state])).numpy())
-        next_state, reward, done, _ = env.step(action)                      #env.step() : This command will take an action at each step. The action is specified as its parameter. Env.step function returns four parameters, namely observation, reward, done and info. These four are explained below:
+    while not done:
+        #print(np.array([state]))                                                        #"DONE" A MODIFIER 
+        #print(len(np.array(state)))
+        #print(agentoo7.actor(np.array([state])))
+        action = agentoo7.act(state)
+        next_state, reward, done, _ = env.step(action,0)                      #env.step() : This command will take an action at each step. The action is specified as its parameter. Env.step function returns four parameters, namely observation, reward, done and info. These four are explained below:
                                                                             #observation : an environment-specific object representing your observation of the environment.
                                                                             #reward : amount of reward achieved by the previous action. It is a floating data type value. The scale varies between environments.
                                                                             #done : A boolean value stating whether it’s time to reset the environment again.
                                                                             #info (dict): diagnostic information useful for debugging.
         state = next_state
         total_reward += reward
+        
 
     return total_reward
 
@@ -139,7 +153,7 @@ def preprocess1(states, actions, rewards, done, values, gamma):
     adv = np.array(returns, dtype=np.float32) - values[:-1]
     adv = (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
     states = np.array(states, dtype=np.float32)
-    actions = np.array(actions, dtype=np.int32)
+    #actions = np.array(actions, dtype=np.int32)
     returns = np.array(returns, dtype=np.float32)
     return states, actions, returns, adv    
 
@@ -171,10 +185,9 @@ for s in range(steps):           #We will loop for “steps” time i.e we will 
   print("new episod")
 
   for e in range(128):         #The next loop is for the number of times agent interacts with environments and we store experiences in different lists.
-   
     action = agentoo7.act(state)
     value = agentoo7.critic(np.array([state])).numpy()
-    next_state, reward, done, _ = env.step(action)
+    next_state, reward, done, _ = env.step(action,e)
     dones.append(1-done)
     rewards.append(reward)
     states.append(state)
@@ -185,20 +198,20 @@ for s in range(steps):           #We will loop for “steps” time i.e we will 
     values.append(value[0][0])
     state = next_state
     if done:
-      env.reset()
+      state = env.reset()
   
+  state = env.reset()
   value = agentoo7.critic(np.array([state])).numpy()                  #After the above loop, we calculate and add the value of the state next 
   values.append(value[0][0])                                          #to the last state for calculations in the Generalized Advantage Estimation method.
-  np.reshape(probs, (len(probs),2))
+  np.reshape(probs, (len(probs),21))
   probs = np.stack(probs, axis=0)
-
+  
   states, actions,returns, adv  = preprocess1(states, actions, rewards, dones, values, 1)   #Then, we process all the lists in the Generalized Advantage Estimation method to get returns, advantage.
-
   for epocs in range(10):                                    #We train our networks for 10 epochs.
       al,cl = agentoo7.learn(states, actions, adv, probs, returns)
       # print(f"al{al}") 
       # print(f"cl{cl}")   
-
+  print("ICI")
   avg_reward = np.mean([test_reward(env) for _ in range(5)])   #After training, we will test our agent on the test environment for five episodes.
   print(f"total test reward is {avg_reward}")
   avg_rewards_list.append(avg_reward)
