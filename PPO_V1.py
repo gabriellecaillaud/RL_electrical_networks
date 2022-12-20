@@ -211,7 +211,7 @@ for s in range(steps):           #We will loop for “steps” time i.e we will 
       al,cl = agentoo7.learn(states, actions, adv, probs, returns)
       # print(f"al{al}") 
       # print(f"cl{cl}")   
-  print("ICI")
+
   avg_reward = np.mean([test_reward(env) for _ in range(5)])   #After training, we will test our agent on the test environment for five episodes.
   print(f"total test reward is {avg_reward}")
   avg_rewards_list.append(avg_reward)
