@@ -3,7 +3,7 @@ import tensorflow as tf
 import gym
 import tensorflow as tf
 import tensorflow_probability as tfp
-import tensorflow.keras as keras
+from tensorflow import keras as keras
 import keras.losses as kls
 
 #from grid_environment import reset,

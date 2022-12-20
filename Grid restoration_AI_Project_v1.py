@@ -28,6 +28,7 @@ import cloudpickle
 import os
 from datetime import datetime
 from pathlib import Path
+import random as rd
 
 class env():
 
@@ -38,7 +39,7 @@ class env():
         self.reward = None
 
 
-    def reset(self):
+    def reset(self, nb_default):
         nodes_file = "Data_nodes_2.txt"
         nodes_ref = "./data/Data_nodes.txt"
         edges_file = "Data_edges_2.txt"
@@ -57,10 +58,24 @@ class env():
             with open(nodes_ref, mode = 'r') as ref_nodes:
                 for line in ref_nodes.readlines():
                     nodes.write(line)
+
+        L = [i for i in range(42)]
+        Defaults = [0 for _ in range(42)]
+        choice = rd.choices(L,k=nb_default)
+        for k in choice:
+            Defaults[k] = 1
+
+
         with open(edges_file, mode='w') as edges:
             with open(edges_ref, mode = 'r') as ref_edges:
+                counter = 0
                 for line in ref_edges.readlines():
-                    edges.write(line)
+                    if len(line)!=0:
+                        if counter >0:
+                            edges.write(line[:len(line)-2]+str(Defaults[counter-1])+"\n")
+                        else:
+                            edges.write(line)
+                        counter +=1
 
 
     # Set the folder "runs//" to contain all simulation resulted files
@@ -536,7 +551,7 @@ class env():
                 plt.savefig(folder+'plot_T_'+str(step)+'.pdf')
                 plt.savefig(folder+'plot_T_'+str(step)+'.svg')
                 plt.show()
-                
+
         except:
             envir.next_state = None
             envir.reward = -len(graph.nodes)
@@ -616,11 +631,12 @@ class env():
 if __name__ == "__main__":
     # ReconfigAction and RepairAction are to be taken from an RL agent
     #model, graph, next_state, reward = response(ReconfigAction, RepairAction)
-    reconf = {(16, 29): False, (29, 16): False, (8, 9): False, (9, 8): False, (22, 35): False, (35, 22): False, (20, 22): False, (22, 20): False, (14, 33): False, (33, 14): False, (24, 10): False, (10, 24): False, (33, 31): False, (31, 33): False, (11, 9): True, (9, 11): True, (13, 12): True, (12, 13): True, (25, 11): True, (11, 25): True, (18, 5): False, (5, 18): False, (24, 23): True, (23, 24): True, (20, 19): False, (19, 20): False, (21, 36): False, (36, 21): False, (20, 21): True, (21, 20): True, (31, 30): True, (30, 31): True, (32, 13): False, (13, 32): False, (27, 26): True, (26, 27): True, (5, 4): True, (4, 5): True, (23, 19): False, (19, 23): False, (7, 27): False, (27, 7): False}
-    repair = (12,13)
+    #reconf = {(16, 29): False, (29, 16): False, (8, 9): False, (9, 8): False, (22, 35): False, (35, 22): False, (20, 22): False, (22, 20): False, (14, 33): False, (33, 14): False, (24, 10): False, (10, 24): False, (33, 31): False, (31, 33): False, (11, 9): True, (9, 11): True, (13, 12): True, (12, 13): True, (25, 11): True, (11, 25): True, (18, 5): False, (5, 18): False, (24, 23): True, (23, 24): True, (20, 19): False, (19, 20): False, (21, 36): False, (36, 21): False, (20, 21): True, (21, 20): True, (31, 30): True, (30, 31): True, (32, 13): False, (13, 32): False, (27, 26): True, (26, 27): True, (5, 4): True, (4, 5): True, (23, 19): False, (19, 23): False, (7, 27): False, (27, 7): False}
+    #repair = (12,13)
     envir = env()
-    envir.response(envir,reconf)
+    #envir.response(envir,reconf)
 
-    if envir.next_state == None:
-        print("reset")
-        envir.reset()
+    #if envir.next_state == None:
+    #    print("reset")
+    #    envir.reset()
+    envir.reset(7)
