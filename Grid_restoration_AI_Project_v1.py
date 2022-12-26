@@ -44,7 +44,7 @@ class environement():
         nodes_ref = "./data/Data_nodes.txt"
         edges_file = "Data_edges_2.txt"
         edges_ref = "./data/Data_edges.txt"
-        nb_default = 7
+        nb_default = 5
         try:
             os.remove(nodes_file)
         except:
@@ -75,7 +75,7 @@ class environement():
                             edges.write(line[:len(line)-2]+str(Defaults[counter-1])+"\n")
                         else:
                             edges.write(line)
-                        counter +=1
+                        #counter +=1
         
         return self.step({},counter = 0)[0]
 

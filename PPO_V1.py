@@ -17,11 +17,13 @@ class critic(tf.keras.Model):   #The Critic network outputs the value of a state
     def __init__(self):
         super().__init__()
         self.d1 = tf.keras.layers.Dense(324,activation='relu')
+        self.d2 = tf.keras.layers.Dense(64,activation='relu')
         self.v = tf.keras.layers.Dense(1, activation = None)
 
     def call(self, input_data):
-        x = self.d1(input_data)
-        v = self.v(x)
+        x1 = self.d1(input_data)
+        x2 = self.d2(x1)
+        v = self.v(x2)
         return v
     
 
@@ -29,11 +31,13 @@ class actor(tf.keras.Model):  #The Actor-network takes the current state as inpu
   def __init__(self):
     super().__init__()
     self.d1 = tf.keras.layers.Dense(324,activation='relu')
+    self.d2 = tf.keras.layers.Dense(64,activation='relu')
     self.a = tf.keras.layers.Dense(21,activation='softmax')    #21=number of distinct switches on which we can take an action (open or close)
 
   def call(self, input_data):
-    x = self.d1(input_data)
-    a = self.a(x)
+    x1 = self.d1(input_data)
+    x2 = self.d2(x1)
+    a = self.a(x2)
     return a
 
 class agent():                               #Action Selection
@@ -68,12 +72,12 @@ class agent():                               #Action Selection
   
 
 
-    def actor_loss(self, probs, actions, adv, old_probs, closs):
+    def actor_loss(self, probs, actions, adv, old_probs, closs, rewards):
         
         probability = probs      
-        entropy = tf.reduce_mean(tf.math.negative(tf.math.multiply(probability,tf.math.log(probability))))
+        entropy = tf.reduce_mean(tf.math.negative(tf.math.multiply(probability,tf.math.log(probability+1e-5))))
         #print(probability)
-        #print(entropy)
+        print(f"entropy {entropy}")
         sur1 = []
         sur2 = []
         
@@ -93,13 +97,13 @@ class agent():                               #Action Selection
 
         sr1 = tf.stack(sur1)
         sr2 = tf.stack(sur2)
-        
+        rew = tf.reduce_mean(rewards)
         #closs = tf.reduce_mean(tf.math.square(td))
-        loss = tf.math.negative(tf.reduce_mean(tf.math.minimum(sr1, sr2)) - closs + 0.001 * entropy)
+        loss = tf.math.negative(tf.reduce_mean(0.0000001*tf.math.minimum(sr1, sr2)) +100*rew + 0.000001 * entropy)
         #print(loss)
         return loss
 
-    def learn(self, states, actions,  adv , old_probs, discnt_rewards):
+    def learn(self, states, actions,  adv , old_probs, discnt_rewards, rewards):
         discnt_rewards = tf.reshape(discnt_rewards, (len(discnt_rewards),))
         adv = tf.reshape(adv, (len(adv),))
 
@@ -112,7 +116,8 @@ class agent():                               #Action Selection
             v = tf.reshape(v, (len(v),))
             td = tf.math.subtract(discnt_rewards, v)
             c_loss = 0.5 * kls.mean_squared_error(discnt_rewards, v)
-            a_loss = self.actor_loss(p, actions, adv, old_probs, c_loss)
+            a_loss = self.actor_loss(p, actions, adv, old_probs, c_loss,rewards)
+            print(f"a_loss {a_loss}")
             
         grads1 = tape1.gradient(a_loss, self.actor.trainable_variables)
         grads2 = tape2.gradient(c_loss, self.critic.trainable_variables)
@@ -208,9 +213,9 @@ for s in range(steps):           #We will loop for “steps” time i.e we will 
   
   states, actions,returns, adv  = preprocess1(states, actions, rewards, dones, values, 1)   #Then, we process all the lists in the Generalized Advantage Estimation method to get returns, advantage.
   for epocs in range(10):                                    #We train our networks for 10 epochs.
-      al,cl = agentoo7.learn(states, actions, adv, probs, returns)
-      # print(f"al{al}") 
-      # print(f"cl{cl}")   
+      al,cl = agentoo7.learn(states, actions, adv, probs, returns,rewards)
+      print(f"al {al}") 
+      print(f"cl {cl}")   
 
   avg_reward = np.mean([test_reward(env) for _ in range(5)])   #After training, we will test our agent on the test environment for five episodes.
   print(f"total test reward is {avg_reward}")
@@ -225,5 +230,3 @@ for s in range(steps):           #We will loop for “steps” time i.e we will 
   env.reset()
 
 env.close()
-    
-  
