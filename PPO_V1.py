@@ -53,22 +53,14 @@ class agent():                               #Action Selection
 
           
     def act(self,state):
-        #print("le np array", np.array([state]))
+        print("le np array", np.array([state]))
         prob = self.actor(np.asarray([state]).astype('float32'))
         prob = prob.numpy()
-        
-        reconf_list = [(16, 29), (29, 16), (8, 9), (9, 8), (22, 35), (35, 22), (20, 22), (22, 20), (14, 33), (33, 14), (24, 10), (10, 24), (33, 31), (31, 33), (11, 9), (9, 11), (13, 12), (12, 13), (25, 11), (11, 25), (18, 5), (5, 18), (24, 23), (23, 24), (20, 19), (19, 20), (21, 36), (36, 21), (20, 21), (21, 20), (31, 30), (30, 31), (32, 13), (13, 32), (27, 26), (26, 27), (5, 4), (4, 5), (23, 19), (19, 23), (7, 27), (27, 7)]
-        reconf = {}
-        treshold = 0.4
+        dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)    #For action selection, we will be using the TensorFlow probabilities library, which takes probabilities as input and convert them into distribution.
+        action = dist.sample()                 #Then, we use the distribution for action selection.
+        return int(action.numpy()[0])
 
-        for i in range(len(prob[0])):
-            reconf[reconf_list[2*i]] = 1 if prob[0][i]>treshold else 0
-            reconf[reconf_list[2*i+1]] = 1 if prob[0][i]>treshold else 0
         
-        return reconf
-        #dist = tfp.distributions.Categorical(probs=prob, dtype=tf.float32)    #For action selection, we will be using the TensorFlow probabilities library, which takes probabilities as input and convert them into distribution.
-        #action = dist.sample()                 #Then, we use the distribution for action selection.
-        #return int(action.numpy()[0])
   
 
 
@@ -129,18 +121,25 @@ def test_reward(env):            #This function will be used to test our agent�
     total_reward = 0
     state = env.reset()
     done = False
+    counter = 0
     while not done:
-        #print(np.array([state]))                                                        #"DONE" A MODIFIER 
-        #print(len(np.array(state)))
-        #print(agentoo7.actor(np.array([state])))
+        
         action = agentoo7.act(state)
-        next_state, reward, done, _ = env.step(action,0)                      #env.step() : This command will take an action at each step. The action is specified as its parameter. Env.step function returns four parameters, namely observation, reward, done and info. These four are explained below:
+        dict = {}
+        for (i,j) in reconf_list:
+            if (i,j) == reconf_list[action] or (j,i) == reconf_list[action]:
+                dict[(i,j)]=1
+            else:
+                dict[(i,j)]=0
+
+        next_state, reward, done, _ = env.step(dict,counter)                      #env.step() : This command will take an action at each step. The action is specified as its parameter. Env.step function returns four parameters, namely observation, reward, done and info. These four are explained below:
                                                                             #observation : an environment-specific object representing your observation of the environment.
                                                                             #reward : amount of reward achieved by the previous action. It is a floating data type value. The scale varies between environments.
                                                                             #done : A boolean value stating whether it’s time to reset the environment again.
                                                                             #info (dict): diagnostic information useful for debugging.
         state = next_state
         total_reward += reward
+        counter += 1
         
 
     return total_reward
@@ -171,6 +170,7 @@ total_avgr = []
 target = False 
 best_reward = 0
 avg_rewards_list = []
+reconf_list = [(16, 29), (29, 16), (8, 9), (9, 8), (22, 35), (35, 22), (20, 22), (22, 20), (14, 33), (33, 14), (24, 10), (10, 24), (33, 31), (31, 33), (11, 9), (9, 11), (13, 12), (12, 13), (25, 11), (11, 25), (18, 5), (5, 18), (24, 23), (23, 24), (20, 19), (19, 20), (21, 36), (36, 21), (20, 21), (21, 20), (31, 30), (30, 31), (32, 13), (13, 32), (27, 26), (26, 27), (5, 4), (4, 5), (23, 19), (19, 23), (7, 27), (27, 7)]        
 
 
 for s in range(steps):           #We will loop for “steps” time i.e we will collect experience for “steps” time.
@@ -192,11 +192,19 @@ for s in range(steps):           #We will loop for “steps” time i.e we will 
   for e in range(128):         #The next loop is for the number of times agent interacts with environments and we store experiences in different lists.
     action = agentoo7.act(state)
     value = agentoo7.critic(np.array([state])).numpy()
-    next_state, reward, done, _ = env.step(action,e)
+
+    dict = {}
+    for (i,j) in reconf_list:
+        if (i,j) == reconf_list[action] or (j,i) == reconf_list[action]:
+            dict[(i,j)]=1
+        else:
+            dict[(i,j)]=0
+
+    next_state, reward, done, _ = env.step(dict,e)
     dones.append(1-done)
     rewards.append(reward)
     states.append(state)
-    #actions.append(tf.one_hot(action, 2, dtype=tf.int32).numpy().tolist())
+    actions.append(tf.one_hot(action, 2, dtype=tf.int32).numpy().tolist())
     actions.append(action)
     prob = agentoo7.actor(np.array([state]))
     probs.append(prob[0])

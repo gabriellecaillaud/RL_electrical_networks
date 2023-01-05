@@ -90,7 +90,7 @@ class environement():
         return folder
 
 
-    def response(self,ReconfAction_fromRL,RepairAction_fromRL=None,counter = 1):
+    def response(self,ReconfAction_fromRL,RepairAction_fromRL=None):
         # ***** small use case *****
         experiment = Path(__file__).stem
         folder = 'runs/'
@@ -296,14 +296,15 @@ class environement():
                             
 
         # If suitable values of sw_fromRL are set above, activate this constraint by uncommenting
+
         if ReconfAction_fromRL != {}:
-            model.c0_0 = pyo.Constraint(model.L_r_rc, rule=lambda model, i, j:
-                                        model.sw[i,j,3] == sw_fromRL[(i,j)]
+             model.c0_0 = pyo.Constraint(model.L_r_rc, rule=lambda model, i, j:
+                                         model.sw[i,j,3] == sw_fromRL[(i,j)]
                                         )
         else:
-            model.c0_0 = pyo.Constraint(model.L_r_rc, rule=lambda model, i, j:
-                                        model.sw[i,j,3] == model.sw[i,j,2]
-                                        )
+             model.c0_0 = pyo.Constraint(model.L_r_rc, rule=lambda model, i, j:
+                                         model.sw[i,j,3] == model.sw[i,j,2]
+                                         )
 
 
         #ICI#
@@ -530,9 +531,10 @@ class environement():
             #plt.title('T = '+str(step))
             pos = {node:np.array([float(graph.nodes[node]['pos_x']),float(graph.nodes[node]['pos_y'])]) for node in graph.nodes} # nx.spring_layout(graph, seed=3113794652)  # positions for all nodes
             # pos = nx.spring_layout(graph, fixed=graph.nodes(), pos=pos, seed=3113794652)  # positions for all nodes
+            '''
             options = {"edgecolors": "tab:gray", "node_size": 400, "alpha": 0.9}
             options1 = {"edgecolors": "tab:gray", "node_size": 200, "alpha": 0.9}
-            '''nx.draw_networkx_nodes(g, pos, nodelist=[node for node in g.nodes() if g.nodes[node]['HV_SS']=='1'], node_color="tab:red", **options)
+            nx.draw_networkx_nodes(g, pos, nodelist=[node for node in g.nodes() if g.nodes[node]['HV_SS']=='1'], node_color="tab:red", **options)
             nx.draw_networkx_nodes(g, pos, nodelist=[node for node in g.nodes() if g.nodes[node]['MV_SS']=='1'], node_color="tab:blue", **options1)
             nx.draw_networkx_labels(g, pos, labels={n: n for n in graph}, font_size=8)
             # nx.draw_networkx_edges(g, pos, width=1.0, alpha=0.5)
@@ -556,11 +558,11 @@ class environement():
             nx.draw_networkx_edges(g,pos,edgelist=[edge for edge in g.edges() if g[edge[0]][edge[1]]['failed']=='1' 
                                     and g[edge[0]][edge[1]]['normal_open']=='1' and g[edge[0]][edge[1]]['switch']=='M' and model.sw[edge[0],edge[1],step].value<0.5],
                                     edge_color="tab:brown", style='dashed')
-            '''    
-            #plt.box(False)
+            
+            plt.box(False)
             #plt.savefig(folder+'plot_T_'+str(step)+'.pdf')
             #plt.savefig(folder+'plot_T_'+str(step)+'.svg')
-            #plt.show()
+            plt.show()'''
 
         except:
             self.next_state = None
@@ -640,8 +642,8 @@ class environement():
         self.model = model
     
     def step(self, action, counter):
-        self.response(action, counter = counter)
-        return self.next_state, self.reward, True, [self.graph,self.model]
+        self.response(action)
+        return self.next_state, self.reward, counter%2 == 1, [self.graph,self.model]
     
     def close(self):
         self.model = None
